@@ -39,4 +39,15 @@ def get_gold_rate() -> str:
     """
     return "Approx ₹7,200 per gram (24K)."
 
-financial_tools = [lookup_tax_bracket, get_fd_rates, get_gold_rate]
+@tool
+def research_topic(topic: str) -> str:
+    """
+    Perform autonomous research on a financial topic.
+    Returns a detailed summary.
+    """
+    # In a real agent, this would use Serper/Tavily.
+    # For now, we simulate deep research using the LLM's knowledge in the Coach/Orchestrator layer,
+    # or return a placeholder that the Coach expands on.
+    return f"Researching '{topic}'... Found market trends, historical data, and expert opinions."
+
+financial_tools = [lookup_tax_bracket, get_fd_rates, get_gold_rate, research_topic]

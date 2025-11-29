@@ -17,8 +17,85 @@ class AgentOrchestrator:
             "tax": financial_tools[0],
             "fd": financial_tools[1],
             "fixed deposit": financial_tools[1],
-            "gold": financial_tools[2]
+            "gold": financial_tools[2],
+            "research": financial_tools[3]
         }
+        # Simple in-memory context for MVP (user_id -> context_dict)
+        self.context = {}
+
+    def _handle_investment_flow(self, user_id: str, message: str, parsed: dict, user_profile: dict, user_state: dict) -> tuple[str, dict]:
+        """Centralized logic for handling investment conversations and slot filling"""
+        # === SLOT FILLING LOGIC ===
+        
+        # 1. Merge parsed data into context
+        if user_id not in self.context:
+            self.context[user_id] = {}
+        
+        ctx = self.context[user_id]
+        if parsed.amount: ctx["amount"] = parsed.amount
+        if parsed.goal_name: ctx["goal"] = parsed.goal_name
+        if parsed.duration_years: ctx["duration"] = parsed.duration_years
+        if parsed.risk_profile: ctx["risk"] = parsed.risk_profile
+        if parsed.investment_type: ctx["type"] = parsed.investment_type
+        
+        # 2. Check for missing fields
+        missing_fields = []
+        if not ctx.get("amount"): missing_fields.append("amount")
+        if not ctx.get("goal"): missing_fields.append("goal")
+        if not ctx.get("duration"): missing_fields.append("duration")
+        
+
+        
+        # Risk is optional, default to profile
+        
+        response = ""
+        card_data = None
+
+        # 3. Ask for next missing field
+        if missing_fields:
+            next_field = missing_fields[0]
+            if next_field == "amount":
+                response = "How much would you like to invest?"
+            elif next_field == "goal":
+                response = "What is this investment for? (e.g., Buying a Car, Retirement)"
+            elif next_field == "duration":
+                response = "How many years do you plan to stay invested?"
+        else:
+            # All fields present, generate plan
+            inv_type = ctx.get("type") or ("SIP" if "sip" in message.lower() else "Lumpsum")
+            amount = ctx.get("amount")
+            goal = ctx.get("goal")
+            duration = ctx.get("duration")
+            risk = ctx.get("risk")
+            
+            plan = self.allocation.generate_plan(
+                user_profile, 
+                user_state, 
+                investment_type=inv_type, 
+                amount_override=amount,
+                goal=goal,
+                duration=duration,
+                risk_override=risk
+            )
+            
+            # Clear context after success
+            if user_id in self.context:
+                del self.context[user_id]
+            
+            card_data = {
+                "type": "investment_allocation",
+                "title": "Your Wealth Plan",
+                "subtitle": f"{plan['risk_profile']} • {inv_type}",
+                "data": {
+                    "allocation": plan["what"],
+                    "projections": plan["projections"],
+                    "steps": plan["how"]
+                }
+            }
+            
+            response = f"Here is your personalized investment plan for **{goal}**.\n\n**Why Invest?**\n{plan['why']}\n\n**How Much?**\nWe recommend starting with ₹{plan['how_much']}/month."
+
+        return response, card_data
     
     async def process_message(self, user_id: str, message: str) -> dict:
         """Main entry point for processing user messages"""
@@ -141,24 +218,8 @@ class AgentOrchestrator:
             )
 
             # Check for investment keywords in advice
-            if "invest" in message.lower() or "allocation" in message.lower():
-                # Generate investment plan using dedicated Allocation Agent
-                plan = self.allocation.generate_plan(user_profile, user_state)
-                
-                card_data = {
-                    "type": "investment_allocation",
-                    "title": "Your Wealth Plan",
-                    "subtitle": plan["risk_profile"],
-                    "data": {
-                        "allocation": plan["what"],
-                        "projections": plan["projections"],
-                        "steps": plan["how"]
-                    }
-                }
-                
-                # Append reasoning to response if not already there
-                if "allocation" not in response.lower():
-                    response += f"\n\n**Why Invest?**\n{plan['why']}\n\n**How Much?**\nWe recommend starting with ₹{plan['how_much']}/month."
+            if "invest" in message.lower() or "allocation" in message.lower() or parsed.investment_type or user_id in self.context:
+                 response, card_data = self._handle_investment_flow(user_id, message, parsed, user_profile, user_state)
         
         elif parsed.intent == "query":
             # Status check
@@ -166,34 +227,44 @@ class AgentOrchestrator:
             
             # Check if it's an investment query
             card_data = None
-            if "invest" in message.lower() or "allocation" in message.lower():
-                # Generate investment plan using dedicated Allocation Agent
-                plan = self.allocation.generate_plan(user_profile, user_state)
+            if "invest" in message.lower() or "allocation" in message.lower() or parsed.investment_type or user_id in self.context:
+                response, card_data = self._handle_investment_flow(user_id, message, parsed, user_profile, user_state)
                 
-                card_data = {
-                    "type": "investment_allocation",
-                    "title": "Your Wealth Plan",
-                    "subtitle": plan["risk_profile"],
-                    "data": {
-                        "allocation": plan["what"],
-                        "projections": plan["projections"],
-                        "steps": plan["how"]
-                    }
-                }
-                
-                response = await self.coach.generate_response(
-                    user_profile.get("literacy_level", 2),
-                    str(user_state),
-                    decision.dict(),
-                    f"Explain this investment plan: {plan['why']}"
-                )
+                # If response is just the question, we use it. 
+                # If it's the plan, we might want to wrap it with coach, but _handle_investment_flow returns a good response.
+                # However, the original code called coach.generate_response for the plan explanation.
+                # My new method returns a pre-formatted response. Let's stick with that for consistency and simplicity.
             else:
+
                 response = await self.coach.generate_response(
                     user_profile.get("literacy_level", 2),
                     str(user_state),
                     decision.dict(),
                     "Give status update on their finances"
                 )
+
+        elif parsed.intent == "research":
+            # Autonomous Research
+            topic = parsed.raw_query
+            research_result = self.tools["research"].run(topic)
+            
+            # Coach synthesizes the research
+            response = await self.coach.generate_response(
+                user_profile.get("literacy_level", 2),
+                str(user_state),
+                {},
+                f"Present this research findings: {research_result}"
+            )
+            
+            card_data = {
+                "type": "research_result",
+                "title": "Research Findings",
+                "subtitle": "Autonomous Agent Report",
+                "data": {
+                    "topic": topic,
+                    "summary": research_result
+                }
+            }
         
         else:
             # General chat - just use coach
@@ -201,27 +272,8 @@ class AgentOrchestrator:
             card_data = None
             
             # Check for investment keywords even in general chat
-            if "invest" in message.lower() or "allocation" in message.lower():
-                 # Generate investment plan using dedicated Allocation Agent
-                plan = self.allocation.generate_plan(user_profile, user_state)
-                
-                card_data = {
-                    "type": "investment_allocation",
-                    "title": "Your Wealth Plan",
-                    "subtitle": plan["risk_profile"],
-                    "data": {
-                        "allocation": plan["what"],
-                        "projections": plan["projections"],
-                        "steps": plan["how"]
-                    }
-                }
-                
-                response = await self.coach.generate_response(
-                    user_profile.get("literacy_level", 2),
-                    str(user_state),
-                    {},
-                    f"Explain this investment plan: {plan['why']}"
-                )
+            if "invest" in message.lower() or "allocation" in message.lower() or parsed.investment_type or user_id in self.context:
+                 response, card_data = self._handle_investment_flow(user_id, message, parsed, user_profile, user_state)
             else:
                 response = await self.coach.generate_response(
                     user_profile.get("literacy_level", 2),

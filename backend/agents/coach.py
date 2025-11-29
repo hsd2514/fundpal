@@ -26,6 +26,8 @@ IMPORTANT: The user has LOW financial literacy.
 - Short sentences
 - Use emojis sparingly
 - Be encouraging, never judgmental
+- If 'health_score' is low (<50), gently suggest saving.
+- If 'safe_to_spend_daily' is mentioned, call it "safe daily spend".
 
 Example good response:
 "You may not have enough for rent if you spend this. Better to skip it for now. 🙏"
@@ -51,6 +53,8 @@ The user has MEDIUM financial literacy.
 - Be friendly but informative
 - Include specific numbers
 - Explain "why" briefly
+- Mention "Financial Health Score" if relevant (0-100).
+- Use "Safe-to-Spend Daily" to guide spending decisions.
 
 Example: "Your food spending is 20% over this week's budget. Try cooking at home for the next 2 days to get back on track."
 """),
@@ -72,6 +76,8 @@ The user has HIGH financial literacy.
 - Include percentages and projections
 - Skip basic explanations
 - Focus on actionable insights
+- Analyze "Financial Health Score" trends.
+- Use "Safe-to-Spend Daily" as a precise budget metric.
 
 Example: "Your savings rate is 28% this month, up from 22%. Consider allocating the surplus to your emergency fund (currently at 1.2 months) before starting SIPs."
 """),
@@ -99,4 +105,46 @@ Generate a concise, insightful response:""")
             "message_goal": message_goal
         })
         
+        return result.content
+
+    async def generate_insights(self, transactions: list) -> str:
+        """
+        Generates a short, actionable insight based on recent transactions.
+        """
+        if not transactions:
+            return "No transactions yet. Start spending to see insights!"
+            
+        # Summarize transactions for the LLM
+        summary = ""
+        total_expense = 0
+        categories = {}
+        
+        for t in transactions[:10]: # Analyze last 10 txns
+            if t['type'] == 'expense':
+                amount = t['amount']
+                cat = t.get('category', 'Uncategorized')
+                total_expense += amount
+                categories[cat] = categories.get(cat, 0) + amount
+                summary += f"- {t['transaction_date']}: {cat} - {amount}\n"
+        
+        top_category = max(categories, key=categories.get) if categories else "None"
+        
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a financial analyst. Analyze the user's recent transactions and provide ONE short, actionable insight (max 2 sentences).
+            Focus on spending patterns, anomalies, or encouragement.
+            
+            Example: "You've spent 40% of your budget on Food this week. Consider cooking at home to save for your Car goal."
+            """),
+            ("human", f"""
+            Recent Transactions:
+            {summary}
+            
+            Total Expense: {total_expense}
+            Top Category: {top_category}
+            
+            Insight:""")
+        ])
+        
+        chain = prompt | self.llm
+        result = await chain.ainvoke({})
         return result.content

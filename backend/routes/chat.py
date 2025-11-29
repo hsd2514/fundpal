@@ -19,6 +19,7 @@ class ChatResponse(BaseModel):
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(user_id: str, message: ChatMessage):
     """Main chat endpoint"""
+    print(f"DEBUG: Endpoint hit! User: {user_id}, Msg: {message.message}")
     try:
         result = await orchestrator.process_message(user_id, message.message)
         return ChatResponse(

@@ -3,14 +3,23 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from database.queries import get_db_connection
 from datetime import datetime
+from services.portfolio import PortfolioService
+
+portfolio_service = PortfolioService()
 
 router = APIRouter()
 
 class InvestmentPlan(BaseModel):
     allocation: Dict[str, Dict[str, Any]] # e.g. {"Short-term": {"asset": "Liquid", "pct": 20, "fund": "SBI Liquid"}}
     risk_profile: str
+    total_amount: float = 0.0
 
-@router.get("/api/investments")
+class ExecuteRequest(BaseModel):
+    symbol: str
+    quantity: float
+    action: str # "BUY" or "SELL"
+
+@router.get("/investments")
 async def get_investments(user_id: str):
     """Get user investments"""
     try:
@@ -26,7 +35,7 @@ async def get_investments(user_id: str):
 import traceback
 import uuid
 
-@router.post("/api/investments")
+@router.post("/investments")
 async def save_investment_plan(user_id: str, plan: InvestmentPlan):
     """Save investment allocation as active investments"""
     print(f"DEBUG: Saving investment plan for {user_id}: {plan}")
@@ -67,7 +76,6 @@ async def save_investment_plan(user_id: str, plan: InvestmentPlan):
             ))
             
         conn.commit()
-        return {"status": "success", "message": "Investment plan saved"}
     except Exception as e:
         print("ERROR saving investments:")
         traceback.print_exc()
@@ -75,3 +83,51 @@ async def save_investment_plan(user_id: str, plan: InvestmentPlan):
     finally:
         if conn:
             conn.close()
+            
+    # --- PORTFOLIO EXECUTION ---
+    # Execute buys AFTER closing the main connection to avoid SQLite locking issues
+    print(f"DEBUG: Executing portfolio buys for {user_id}")
+    for category, details in plan.allocation.items():
+        try:
+            ticker = details.get("ticker")
+            if ticker:
+                # Calculate amount for this fund
+                fund_amount = plan.total_amount * (details.get("pct", 0) / 100)
+                
+                # Parsing "₹296.49"
+                price_str = str(details.get("current_price", "0")).replace("₹", "").replace(",", "")
+                try:
+                    price = float(price_str)
+                except:
+                    price = 0
+                    
+                if price > 0:
+                    quantity = fund_amount / price
+                    # Execute Buy
+                    print(f"DEBUG: Auto-buying {quantity:.2f} units of {ticker} for {user_id}")
+                    portfolio_service.execute_buy(user_id, ticker, quantity)
+        except Exception as e:
+            print(f"DEBUG: Failed to auto-execute buy for {details.get('ticker')}: {e}")
+            traceback.print_exc()
+
+    return {"status": "success", "message": "Investment plan saved and executed"}
+
+@router.post("/execute")
+async def execute_trade(user_id: str, request: ExecuteRequest):
+    """Execute a trade (Buy/Sell)"""
+    if request.action.upper() == "BUY":
+        result = portfolio_service.execute_buy(user_id, request.symbol, request.quantity)
+    elif request.action.upper() == "SELL":
+        result = portfolio_service.execute_sell(user_id, request.symbol, request.quantity)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+        
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+        
+    return result
+
+@router.get("/portfolio")
+async def get_portfolio(user_id: str):
+    """Get user portfolio with live values"""
+    return portfolio_service.get_portfolio(user_id)

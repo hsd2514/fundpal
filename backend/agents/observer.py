@@ -14,8 +14,12 @@ class ParsedTransaction(BaseModel):
     category: Optional[str] = None
     transaction_type: Optional[str] = None  # "income" or "expense"
     date: Optional[str] = None
+    investment_type: Optional[str] = None # "SIP" or "Lumpsum"
     source: Optional[str] = None
     raw_query: Optional[str] = None
+    goal_name: Optional[str] = None
+    duration_years: Optional[int] = None
+    risk_profile: Optional[str] = None
 
 class ObserverAgent:
     def __init__(self):
@@ -51,14 +55,29 @@ DATE PARSING:
 Return JSON only.
 Structure:
 {{
-  "intent": "log_income" | "log_expense" | "query" | "advice" | "goal",
+  "intent": "log_income" | "log_expense" | "query" | "advice" | "goal" | "research",
   "amount": float | null,
   "category": string | null,
   "transaction_type": "income" | "expense" | null,
-  "date": string | null,
+  "date": "ISO 8601 date" | null,
+  "investment_type": "SIP" | "Lumpsum" | null,
   "source": string | null,
-  "raw_query": string | null (the original message if query/advice)
-}}"""),
+  "raw_query": string | null (the original message if query/advice),
+  "goal_name": string | null (e.g. "Car", "Retirement"),
+  "duration_years": int | null (e.g. 5),
+  "risk_profile": "Low" | "Moderate" | "High" | null
+}}
+
+Examples:
+"Invest 5k in SIP for a car in 3 years" -> {{ "intent": "advice", "amount": 5000, "investment_type": "SIP", "goal_name": "Car", "duration_years": 3 }}
+"I want to invest for a car" -> {{ "intent": "advice", "goal_name": "Car" }}
+"Invest for retirement" -> {{ "intent": "advice", "goal_name": "Retirement" }}
+"Buy 10k stocks" -> {{ "intent": "advice", "amount": 10000, "investment_type": "Lumpsum", "risk_profile": "High" }}
+"Invest 5000" -> {{ "intent": "advice", "amount": 5000, "investment_type": null }}
+"3 years" -> {{ "intent": "advice", "duration_years": 3 }}
+"5 years" -> {{ "intent": "advice", "duration_years": 5 }}
+"10k" -> {{ "intent": "advice", "amount": 10000 }}
+"High risk" -> {{ "intent": "advice", "risk_profile": "High" }}"""),
             ("human", "{message}")
         ])
     

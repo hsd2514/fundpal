@@ -1,0 +1,48 @@
+Testing Goal-Based Investment Flow (Refactored)...
+
+0. Seeding Funds...
+
+1. User: 'I want to invest for a car'
+DEBUG: Processing message for test_user_portfolio_fix: I want to invest for a car
+DEBUG: Got profile: {}
+DEBUG: Got state: {'current_balance': 50000.0, 'total_income': 50000.0, 'total_expense': 0, 'daily_essential': 500, 'emergency_fund_months': 0, 'has_credit_card_debt': False, 'categories': {}, 'upcoming': [], 'days_elapsed': 15, 'days_in_month': 30}
+DEBUG: Parsed message: intent='advice' amount=None category=None transaction_type=None date=None investment_type=None source=None raw_query=None goal_name='Car' duration_years=None risk_profile=None
+
+2. User: '10000'
+DEBUG: Processing message for test_user_portfolio_fix: 10000
+DEBUG: Got profile: {}
+DEBUG: Got state: {'current_balance': 50000.0, 'total_income': 50000.0, 'total_expense': 0, 'daily_essential': 500, 'emergency_fund_months': 0, 'has_credit_card_debt': False, 'categories': {}, 'upcoming': [], 'days_elapsed': 15, 'days_in_month': 30}
+DEBUG: Parsed message: intent='advice' amount=10000.0 category=None transaction_type=None date=None investment_type=None source=None raw_query=None goal_name=None duration_years=None risk_profile=None
+
+3. User: '3'
+DEBUG: Processing message for test_user_portfolio_fix: 3
+DEBUG: Got profile: {}
+DEBUG: Got state: {'current_balance': 50000.0, 'total_income': 50000.0, 'total_expense': 0, 'daily_essential': 500, 'emergency_fund_months': 0, 'has_credit_card_debt': False, 'categories': {}, 'upcoming': [], 'days_elapsed': 15, 'days_in_month': 30}
+DEBUG: Parsed message: intent='advice' amount=None category=None transaction_type=None date=None investment_type=None source=None raw_query=None goal_name=None duration_years=3 risk_profile=None
+Agent: Here is your personalized investment plan for **Car**.
+
+**Why Invest?**
+At age 30, Balanced growth with increasing stability. Investing Γé╣10000.0 (Lumpsum) can grow significantly.
+
+**How Much?**
+We recommend starting with Γé╣10000.0/month.
+
+≡ƒÆí This is educational info, not financial advice.
+Γ£à Success: Plan generated.
+
+4. Saving Investment Plan (Simulating 'Start Investing')...
+DEBUG: Saving investment plan for test_user_portfolio_fix: allocation={'Liquid': {'pct': 10, 'fund': 'HDFC Liquid Fund', 'ticker': 'HDFCBANK.NS', 'current_price': 'Γé╣1007.6', 'action': 'BUY'}, 'Debt': {'pct': 10, 'fund': 'HDFC Short Term Debt', 'ticker': 'HDFCLIFE.NS', 'current_price': 'Γé╣764.3', 'action': 'BUY'}, 'Hybrid': {'pct': 30, 'fund': 'HDFC Balanced Advantage', 'ticker': 'HDFCBANK.NS', 'current_price': 'Γé╣1007.6', 'action': 'BUY'}, 'Equity': {'pct': 50, 'fund': 'ICICI Pru Bluechip', 'ticker': 'ICICIBANK.NS', 'current_price': 'Γé╣1388.8', 'action': 'BUY'}} risk_profile='Moderate' total_amount=10000.0
+DEBUG: Executing portfolio buys for test_user_portfolio_fix
+DEBUG: Auto-buying 0.99 units of HDFCBANK.NS for test_user_portfolio_fix
+DEBUG: Auto-buying 1.31 units of HDFCLIFE.NS for test_user_portfolio_fix
+DEBUG: Auto-buying 2.98 units of HDFCBANK.NS for test_user_portfolio_fix
+DEBUG: Auto-buying 3.60 units of ICICIBANK.NS for test_user_portfolio_fix
+Save Result: {'status': 'success', 'message': 'Investment plan saved and executed'}
+
+5. Verifying Portfolio Holdings...
+Total Value: 7000.0
+Holdings Count: 3
+Γ£à Success: Holdings found in portfolio!
+ - HDFCBANK.NS: 0.9924573243350536 units @ 1007.6
+ - HDFCLIFE.NS: 1.3083867591259977 units @ 764.3
+ - ICICIBANK.NS: 3.600230414746544 units @ 1388.8

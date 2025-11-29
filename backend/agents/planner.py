@@ -2,6 +2,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 from typing import List, Optional
 from enum import Enum
+from financial_logic import calculate_health_score, calculate_safe_to_spend, check_cashflow_stress
 
 class FinancialMode(str, Enum):
     EMERGENCY = "emergency"          # Runway < 3 days
@@ -17,6 +18,9 @@ class PlannerDecision(BaseModel):
     suggestions: List[str]
     should_warn: bool
     priority_action: Optional[str]
+    health_score: float = 0.0
+    safe_to_spend_daily: float = 0.0
+    cashflow_stress: Optional[dict] = None
     
 class PlannerAgent:
     def __init__(self):
@@ -190,10 +194,45 @@ class PlannerAgent:
                     alerts.append(f"{obligation['name']} due in {obligation['days_until']} days, need {gap} more")
                     suggestions.append(f"Keep {obligation['amount']} aside for {obligation['name']}")
         
+        # 6. Calculate Financial Health Score
+        health_score = calculate_health_score(
+            savings_rate=user_state.get("savings_rate", 10),
+            income_stability_score=user_state.get("income_stability_score", 80),
+            emergency_fund_months=emergency_fund_months
+        )
+
+        # 7. Calculate Safe-to-Spend
+        # Estimate daily income
+        monthly_income = user_state.get("monthly_income", 30000)
+        predicted_daily_income = monthly_income / 30
+        daily_essential = user_state.get("daily_essential", 500)
+        
+        safe_to_spend = calculate_safe_to_spend(
+            predicted_income=predicted_daily_income,
+            essential_expenses=daily_essential,
+            goal_allocation=predicted_daily_income * 0.2 # Assume 20% goal alloc
+        )
+
+        # 8. Check Cashflow Stress
+        cashflow_check = check_cashflow_stress(
+            current_balance=user_state.get("current_balance", 0),
+            avg_7_day_expense=user_state.get("avg_7_day_expense", 1000),
+            predicted_income_7d=predicted_daily_income * 7,
+            upcoming_bills_7d=user_state.get("upcoming_bills_7d", 0)
+        )
+        
+        if cashflow_check["is_stressed"]:
+            alerts.append(f"Cashflow Risk: {cashflow_check['reason']}")
+            if not mode or mode == FinancialMode.NORMAL:
+                mode = FinancialMode.WARNING
+
         return PlannerDecision(
             mode=mode if mode else FinancialMode.NORMAL,
             alerts=alerts,
             suggestions=suggestions,
             should_warn=len(alerts) > 0,
-            priority_action=suggestions[0] if suggestions else None
+            priority_action=suggestions[0] if suggestions else None,
+            health_score=health_score,
+            safe_to_spend_daily=safe_to_spend,
+            cashflow_stress=cashflow_check
         )

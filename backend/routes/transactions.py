@@ -4,7 +4,7 @@ from database.queries import get_db_connection
 
 router = APIRouter()
 
-@router.get("/api/transactions")
+@router.get("/transactions")
 async def get_transactions(user_id: str, limit: int = 20):
     """Get recent transactions"""
     try:

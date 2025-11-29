@@ -10,17 +10,35 @@ class GoalCreate(BaseModel):
     target_amount: float
     deadline: str
 
-@router.get("/api/goals")
-async def get_goals(user_id: str):
-    """Get user goals"""
-    # Mock implementation
-    return [
-        {"id": "1", "name": "Emergency Fund", "target": 50000, "current": 12000, "deadline": "2024-12-31"},
-        {"id": "2", "name": "New Laptop", "target": 80000, "current": 5000, "deadline": "2025-06-30"}
-    ]
+import sqlite3
+import uuid
+from datetime import datetime
 
-@router.post("/api/goals")
+def get_db_connection():
+    conn = sqlite3.connect('fundpal.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@router.get("/goals")
+async def get_goals(user_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM goals WHERE user_id = ?", (user_id,))
+    goals = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return goals
+
+@router.post("/goals")
 async def create_goal(user_id: str, goal: GoalCreate):
-    """Create new goal"""
-    # Mock implementation
-    return {"status": "success", "id": "new_goal_id"}
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    goal_id = f"goal_{uuid.uuid4().hex[:8]}"
+    
+    cursor.execute("""
+        INSERT INTO goals (id, user_id, name, target_amount, deadline)
+        VALUES (?, ?, ?, ?, ?)
+    """, (goal_id, user_id, goal.name, goal.target_amount, goal.deadline))
+    
+    conn.commit()
+    conn.close()
+    return {"status": "success", "id": goal_id}

@@ -3,7 +3,7 @@ from database.queries import get_user_state
 
 router = APIRouter()
 
-@router.get("/api/dashboard")
+@router.get("/dashboard")
 async def get_dashboard(user_id: str):
     """Get dashboard data"""
     try:

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from database.queries import save_user_profile, get_user_profile
 
 router = APIRouter()
 
 class OnboardingData(BaseModel):
+    user_id: str
     income_type: str
     income_pattern: str
     monthly_income_min: float
@@ -18,16 +20,19 @@ class OnboardingData(BaseModel):
     risk_tolerance: str = "moderate"
     literacy_level: int = 2
 
-@router.post("/api/onboarding")
-async def complete_onboarding(user_id: str, data: OnboardingData):
+@router.post("/onboarding")
+async def complete_onboarding(data: OnboardingData):
     """Save onboarding data"""
     try:
-        await save_user_profile(user_id, data.dict())
+        user_id = data.user_id
+        profile_data = data.dict()
+        profile_data.pop('user_id')  # Remove user_id from profile data
+        await save_user_profile(user_id, profile_data)
         return {"status": "success", "message": "Profile created"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/profile")
+@router.get("/profile")
 async def get_profile(user_id: str):
     """Get user profile"""
     try:

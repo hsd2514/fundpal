@@ -69,6 +69,8 @@ async def get_user_state(user_id: str) -> Dict[str, Any]:
     
     return {
         "current_balance": balance,
+        "total_income": income,
+        "total_expense": expense,
         "daily_essential": 500, # Mock default
         "emergency_fund_months": 0, # Mock
         "has_credit_card_debt": False, # Mock

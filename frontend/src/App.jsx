@@ -16,14 +16,21 @@ import TransactionsScreen from './components/Transactions/TransactionsScreen';
 import ProfileScreen from './components/Profile/ProfileScreen';
 import useStore from './store/useStore';
 
+import LoginScreen from './components/Auth/LoginScreen';
+import SignupScreen from './components/Auth/SignupScreen';
+
 const App = () => {
-  const { isOnboarded } = useStore();
+  const { user, isOnboarded } = useStore();
 
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth Routes */}
+        <Route path="/login" element={!user ? <LoginScreen /> : <Navigate to="/" replace />} />
+        <Route path="/signup" element={!user ? <SignupScreen /> : <Navigate to="/" replace />} />
+
         {/* Onboarding Routes */}
-        <Route path="/onboarding" element={<Layout />}>
+        <Route path="/onboarding" element={user ? <Layout /> : <Navigate to="/login" replace />}>
           <Route index element={<Navigate to="welcome" replace />} />
           <Route path="welcome" element={<Welcome />} />
           <Route path="income-type" element={<IncomeType />} />
@@ -35,7 +42,7 @@ const App = () => {
         </Route>
 
         {/* Main App Routes */}
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={user ? <Layout /> : <Navigate to="/login" replace />}>
           <Route index element={isOnboarded ? <ChatScreen /> : <Navigate to="/onboarding/welcome" replace />} />
           <Route path="dashboard" element={isOnboarded ? <DashboardScreen /> : <Navigate to="/onboarding/welcome" replace />} />
           <Route path="goals" element={isOnboarded ? <GoalsScreen /> : <Navigate to="/onboarding/welcome" replace />} />
